@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Signup - MyTradingHub</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #383f4d;
+      color: white;
+    }
+    .form-box {
+      background: #3d8c9c;
+      padding: 30px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 400px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 5px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 5px;
+      background: #f42c6c;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .otp-box {
+      display: none;
+    }
+    .message {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #ffd6d6;
+    }
+  </style>
+</head>
+<body>
+
+<div class="form-box">
+  <h2>Sign Up</h2>
+  <input type="email" id="signupEmail" placeholder="Email" required />
+  <input type="password" id="signupPassword" placeholder="Password" required />
+  <button onclick="signupUser()">Send OTP</button>
+
+  <div class="otp-box" id="otpSection">
+    <input type="text" id="otpInput" placeholder="Enter OTP" />
+    <button onclick="verifyOtp()">Verify OTP</button>
+  </div>
+
+  <p class="message" id="signupMessage"></p>
+
+  <p style="margin-top:10px;">Already have an account? <a href="login.html" style="color:#fff;">Login</a></p>
+</div>
+
+<script>
+  let currentEmail = ''
+
+  async function signupUser() {
+    const email = document.getElementById('signupEmail').value.trim()
+    const password = document.getElementById('signupPassword').value.trim()
+    const msg = document.getElementById('signupMessage')
+
+    if (!email || !password) {
+      msg.textContent = 'Please fill in all fields'
+      return
+    }
+
+    try {
+      const res = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await res.json()
+
+      if (res.status !== 200) {
+        msg.textContent = data.message || 'Signup failed'
+        return
+      }
+
+      msg.textContent = 'OTP sent to your email. Please verify.'
+      document.getElementById('otpSection').style.display = 'block'
+      currentEmail = email
+    } catch (err) {
+      console.error(err)
+      msg.textContent = 'Server error. Try again later.'
+    }
+  }
+
+  async function verifyOtp() {
+    const otp = document.getElementById('otpInput').value.trim()
+    const msg = document.getElementById('signupMessage')
+
+    if (!otp) {
+      msg.textContent = 'Please enter the OTP'
+      return
+    }
+
+    try {
+      const res = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentEmail, otp })
+      })
+
+      const data = await res.json()
+
+      if (res.status !== 200) {
+        msg.textContent = data.message || 'OTP verification failed'
+        return
+      }
+
+      msg.textContent = 'Signup complete! Redirecting to login...'
+      setTimeout(() => {
+        window.location.href = 'login.html'
+      }, 2000)
+    } catch (err) {
+      console.error(err)
+      msg.textContent = 'Server error. Try again later.'
+    }
+  }
+</script>
+
+</body>
+</html>

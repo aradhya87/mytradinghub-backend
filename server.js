@@ -2,31 +2,40 @@ require('dotenv').config()
 const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
+const path = require('path')
+const bodyParser = require('body-parser')
 
 const app = express()
 app.use(cors())
 app.use(express.json())
+app.use(bodyParser.urlencoded({ extended: true }))
 
-// Connect to MongoDB
+// ✅ Step 4: Serve static frontend files from /public
+app.use(express.static(path.join(__dirname, 'public')))
+
+// ✅ Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.log(err))
+}).then(() => console.log('MongoDB connected'))
+  .catch(err => console.error(err))
 
+// ✅ All Routes
+app.use('/api/auth', require('./routes/auth'))
+app.use('/api/trade', require('./routes/trade'))
+app.use('/api/kyc', require('./routes/kyc'))
+app.use('/api/admin', require('./routes/admin'))
 
-// User model
+// ✅ Mongoose User Model
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
   isVerified: { type: Boolean, default: false },
-  otp: { type: String }, // temporary OTP for verification
+  otp: { type: String },
   otpExpiry: { type: Date }
 })
-
 const User = mongoose.model('User', UserSchema)
 
-// Nodemailer setup
+// ✅ Nodemailer setup
 const nodemailer = require('nodemailer')
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -39,7 +48,7 @@ const transporter = nodemailer.createTransport({
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 
-// Signup Route
+// ✅ Signup Route
 app.post('/api/signup', async (req, res) => {
   try {
     const { email, password } = req.body
@@ -49,9 +58,8 @@ app.post('/api/signup', async (req, res) => {
     if (userExist) return res.status(400).json({ message: 'User already exists' })
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000)
 
-    // Save user with hashed password and otp
     const salt = await bcrypt.genSalt(10)
     const passwordHash = await bcrypt.hash(password, salt)
 
@@ -64,7 +72,6 @@ app.post('/api/signup', async (req, res) => {
     })
     await newUser.save()
 
-    // Send OTP email
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
@@ -79,7 +86,7 @@ app.post('/api/signup', async (req, res) => {
   }
 })
 
-// Verify OTP Route
+// ✅ Verify OTP Route
 app.post('/api/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body
@@ -87,11 +94,8 @@ app.post('/api/verify-otp', async (req, res) => {
 
     const user = await User.findOne({ email })
     if (!user) return res.status(400).json({ message: 'User not found' })
-
     if (user.isVerified) return res.status(400).json({ message: 'User already verified' })
-
     if (user.otp !== otp) return res.status(400).json({ message: 'Invalid OTP' })
-
     if (user.otpExpiry < new Date()) return res.status(400).json({ message: 'OTP expired' })
 
     user.isVerified = true
@@ -106,7 +110,7 @@ app.post('/api/verify-otp', async (req, res) => {
   }
 })
 
-// Login Route
+// ✅ Login Route
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body
@@ -114,13 +118,11 @@ app.post('/api/login', async (req, res) => {
 
     const user = await User.findOne({ email })
     if (!user) return res.status(400).json({ message: 'Invalid credentials' })
-
     if (!user.isVerified) return res.status(400).json({ message: 'Email not verified' })
 
     const isMatch = await bcrypt.compare(password, user.passwordHash)
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' })
 
-    // Generate JWT token
     const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' })
 
     return res.status(200).json({ token, email: user.email })
@@ -130,5 +132,11 @@ app.post('/api/login', async (req, res) => {
   }
 })
 
+// ✅ Step 7: Fallback route to serve frontend SPA
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'))
+})
+
+// ✅ Step 8: Start server
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))

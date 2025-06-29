@@ -39,6 +39,11 @@
       font-weight: bold;
       cursor: pointer;
     }
+    .error {
+      margin-top: 10px;
+      color: #ffb3b3;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -48,10 +53,48 @@
   <input type="email" id="loginEmail" placeholder="Email" required />
   <input type="password" id="loginPassword" placeholder="Password" required />
   <button onclick="loginUser()">Login</button>
-
+  <p class="error" id="loginError"></p>
   <p style="margin-top:10px;">Don't have an account? <a href="signup.html" style="color:#fff;">Sign Up</a></p>
 </div>
 
-<script src="scripts.js"></script>
+<script>
+  async function loginUser() {
+    const email = document.getElementById('loginEmail').value.trim()
+    const password = document.getElementById('loginPassword').value.trim()
+    const errorBox = document.getElementById('loginError')
+
+    if (!email || !password) {
+      errorBox.textContent = 'Please fill in all fields'
+      return
+    }
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await res.json()
+
+      if (res.status !== 200) {
+        errorBox.textContent = data.message || 'Login failed'
+        return
+      }
+
+      // Save token and email to localStorage
+      localStorage.setItem('authToken', data.token)
+      localStorage.setItem('myTradingHubUser', JSON.stringify({ email: data.email, balance: 0 }))
+
+      // Redirect to dashboard
+      window.location.href = 'dashboard.html'
+    } catch (err) {
+      console.error(err)
+      errorBox.textContent = 'Server error. Try again later.'
+    }
+  }
+</script>
 </body>
 </html>
